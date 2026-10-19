@@ -8,6 +8,7 @@ source "$(dirname "$(readlink -f "$0")")/lib.sh"
 
 : "${SSH_KEYS_URL:=}" "${SSH_PUBKEY:=}" "${WIFI_SSID:=}" "${WIFI_PSK:=}" "${MOUNT_NAMES:=}" "${TM_DIR:=}"
 : "${AFRAID_DOMAINS:=}" "${DOMAINS:=}" "${LE_EMAIL:=}" "${DB_ENGINE:=postgresql}"
+: "${SSH_PASSWORD_AUTH:=auto}" "${IPV6_MODE:=link-local}" "${LAN_CIDR6:=}" "${ACME_STAGING:=0}"
 
 ask() {   # ask VAR "Question" [validator]
   local var=$1 q=$2 check=${3:-} cur a
@@ -30,6 +31,9 @@ v_tz()   { [[ -f /usr/share/zoneinfo/$1 ]]; }
 v_disk() { [[ -b $1 ]]; }
 v_db()   { [[ $1 == postgresql || $1 == sqlite || $1 == none ]]; }
 v_user() { [[ $1 =~ ^[a-z_][a-z0-9_-]*$ ]]; }
+v_sshpw() { [[ $1 == auto || $1 == yes || $1 == no ]]; }
+v_ipv6() { [[ $1 == link-local || $1 == auto ]]; }
+v_01()   { [[ $1 == 0 || $1 == 1 ]]; }
 v_host() { [[ $1 =~ ^[A-Za-z0-9-]+$ ]]; }
 mask()   { if [[ $1 == "$PLACEHOLDER_TOKEN" ]]; then echo "$1"; else echo "${1:0:4}...(set)"; fi; }
 
@@ -57,9 +61,12 @@ sec_access() {
   ask ADMIN_USER "Admin (non-root) username" v_user
   ask SSH_KEYS_URL "SSH public keys URL (e.g. https://github.com/<user>.keys)"
   ask SSH_PUBKEY "…or paste one SSH public key line"
+  ask SSH_PASSWORD_AUTH "SSH password login: auto (off once a key exists) | no (key-only, needs a key) | yes" v_sshpw
   ask WIFI_SSID "Wi-Fi SSID (blank = wired only)"
   if [[ -n $WIFI_SSID ]]; then ask_secret WIFI_PSK "Wi-Fi password"; fi
-  ask LAN_CIDR "Networks allowed to reach SSH/SMB/NFS (comma-separated CIDRs)"
+  ask LAN_CIDR "Networks allowed to reach SSH/SMB/NFS (comma-separated IPv4 CIDRs)"
+  ask IPV6_MODE "IPv6 on the NAS: link-local (LAN-only, recommended) | auto" v_ipv6
+  if [[ $IPV6_MODE == auto ]]; then ask LAN_CIDR6 "Your LAN's global IPv6 prefix for the firewall, e.g. 2001:db8:1:2::/64 (blank = none)"; fi
 }
 sec_nas() {
   log "NAS"
@@ -89,7 +96,8 @@ sec_web() {
   esac
   if [[ -z $AFRAID_DOMAINS ]]; then AFRAID_DOMAINS="yourhost.mooo.com=$PLACEHOLDER_TOKEN"; warn "no hostnames — using placeholder $AFRAID_DOMAINS"; fi
   ask DOMAINS "Domains Caddy should serve (blank = every AfraidDNS hostname above)"
-  ask LE_EMAIL "Let's Encrypt contact email (blank = none)"
+  ask LE_EMAIL "Let's Encrypt contact email (optional)"
+  ask ACME_STAGING "Use Let's Encrypt STAGING (untrusted test certs, no real rate limits)? 0 = no, 1 = yes" v_01
 }
 sec_db() {
   log "Database"
@@ -111,7 +119,7 @@ for s in "${sections[@]}"; do
 done
 
 VARS=(HOST_NAME TIMEZONE LOCALE KEYMAP MIRROR_COUNTRIES TARGET_DISK UCODE KERNEL ADMIN_USER SSH_KEYS_URL SSH_PUBKEY
-      WIFI_SSID WIFI_PSK LAN_CIDR MOUNT_NAMES TM_DIR AFRAID_DOMAINS DOMAINS LE_EMAIL DB_ENGINE MODULES)
+      SSH_PASSWORD_AUTH WIFI_SSID WIFI_PSK LAN_CIDR IPV6_MODE LAN_CIDR6 ACME_STAGING MOUNT_NAMES TM_DIR AFRAID_DOMAINS DOMAINS LE_EMAIL DB_ENGINE MODULES)
 (
   umask 077
   { echo "# written by configure.sh on $(date -Iseconds) — overrides config.env. Do not commit."

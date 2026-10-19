@@ -49,5 +49,5 @@ MODE=755 put /usr/local/bin/nas-eject <<EOF
 set -e
 systemctl stop smb nfsv4-server 2>/dev/null || true
 for m in \$(findmnt -rno TARGET -t ntfs3 | grep '^$NAS_DIR/'); do umount "\$m" && echo "unmounted \$m"; done
-sync; echo "Safe to unplug. Afterwards: sudo systemctl restart nfsv4-server smb (or just reboot)"
+sync; echo "Safe to unplug. After re-plugging: sudo mount -a && sudo systemctl restart nfsv4-server smb (or just reboot)"
 EOF

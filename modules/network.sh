@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# IPV6_MODE=link-local (default): no global IPv6 on the NAS, so the LAN-only firewall rules cover IPv6 clients too.
 # NetworkManager (wired metric 100 beats Wi-Fi 600) + Avahi/mDNS so <host>.local resolves.
 source "$(dirname "$(readlink -f "$0")")/../lib.sh"; need_root
-: "${WIFI_SSID:=}" "${WIFI_PSK:=}"
+: "${WIFI_SSID:=}" "${WIFI_PSK:=}" "${IPV6_MODE:=link-local}"
 pkg networkmanager avahi nss-mdns
 nm=/etc/NetworkManager/system-connections
 MODE=600 put $nm/wired.nmconnection <<EOF
@@ -16,7 +17,7 @@ method=auto
 route-metric=100
 
 [ipv6]
-method=auto
+method=$IPV6_MODE
 route-metric=100
 EOF
 if [[ -n $WIFI_SSID ]]; then
@@ -40,7 +41,7 @@ method=auto
 route-metric=600
 
 [ipv6]
-method=auto
+method=$IPV6_MODE
 route-metric=600
 EOF
 fi

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # nftables: LAN reaches everything; the internet reaches only WAN_TCP / WAN_UDP.
 source "$(dirname "$(readlink -f "$0")")/../lib.sh"; need_root
-: "${WAN_TCP:=80, 443}" "${WAN_UDP:=443}"
+: "${WAN_TCP:=80, 443}" "${WAN_UDP:=443}" "${LAN_CIDR6:=}"
 pkg nftables
 put /etc/nftables.conf <<EOF
 #!/usr/bin/nft -f
@@ -16,7 +16,7 @@ table inet filter {
     tcp dport { $WAN_TCP } accept
     udp dport { $WAN_UDP } accept
     ip saddr { $LAN_CIDR } accept
-    ip6 saddr { fe80::/10, fc00::/7 } accept
+    ip6 saddr { fe80::/10, fc00::/7${LAN_CIDR6:+, $LAN_CIDR6} } accept
   }
   chain forward { type filter hook forward priority 0; policy drop; }
 }
